@@ -106,7 +106,7 @@ func userLogin(userName string, password string) bool {
 	//open the database
 	db, err := sql.Open("sqlite3", "./coalition.db")
 	if err != nil {
-		log.Println("Could not open database: %w", err)
+		log.Println(err)
 	}
 
 	defer db.Close()
@@ -115,7 +115,7 @@ func userLogin(userName string, password string) bool {
 	//use the database package to query the sqlite3 database
 	err = db.QueryRow(`SELECT EXISTS (SELECT 1 FROM users WHERE username = ? AND password = ?)`, userName, password).Scan(&exists)
 	if err != nil {
-		log.Println("Could not query database: %w", err)
+		log.Println(err)
 		return false
 	}
 	//return true if user/pw is correct/found, false if not
@@ -140,14 +140,14 @@ func uploadCSVList(filereader io.Reader) error {
 			break
 		}
 		if err != nil {
-			log.Println("Could not read row: %w", err)
+			log.Println(err)
 			failures++
 			continue
 		}
 		//try to convert the row to a struct
 		member, err := rowToStruct(row)
 		if err != nil {
-			log.Println("Could not convert row to struct: %w", err)
+			log.Println(err)
 			failures++
 			continue
 		}
