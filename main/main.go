@@ -17,9 +17,7 @@ import (
 
 //Main backend logic for Coalition App
 
-// I could encapsulate these structs into a separate package and write some statements for them like getters
-// and setters if I need to, but I think working with Gin it might be redundant. If I am just translating json
-// strings and interacting with the database, should I even bother with encapsulation?
+// Structs
 // Define a Member struct to hold members in the list
 type Member struct {
 	Id              int    //autoincremented unique id for the sql database
@@ -48,6 +46,8 @@ type User struct {
 	Password string
 }
 
+//Database
+
 // create the sql table to hold the member structs
 func initializeDatabase() error {
 	db, err := sql.Open("sqlite3", "./coalition.db")
@@ -64,6 +64,7 @@ func initializeDatabase() error {
 		city TEXT,
 		state TEXT,
 		zip TEXT,
+		county TEXT,
 		phone TEXT,
 		email TEXT UNIQUE,
 		last_one_on_one TEXT,
@@ -92,7 +93,7 @@ func initializeDatabase() error {
 	return nil
 }
 
-//Main features
+//Main features ---- Go Methods
 
 //login authentication. The user name and password will be hardcoded for testing
 //or displayed on the page for testing th feature. User: admin; pw: admin
@@ -119,51 +120,6 @@ func userLogin(userName string, password string) bool {
 	}
 	//return true if user/pw is correct/found, false if not
 	return exists
-}
-
-// Gin handler for making member struct from json. gin.H is an alias for a map of strings used to make jsons.
-func handleLogin(c *gin.Context) {
-	//create a new user struct
-	var u User
-	//try to use gin to map the json fields to the member structs using the BindJSON method
-	if err := c.BindJSON(&u); err != nil {
-		//if binding fails, send an error json
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-	}
-	//call the go method userLogin to check the database for the un/pw
-	if userLogin(u.Username, u.Password) {
-		//if found and correct, send a success message
-		c.IndentedJSON(http.StatusOK, gin.H{"message": "Login Successful"})
-	} else {
-		//if found and incorrect or not found send a failure message
-		c.IndentedJSON(http.StatusForbidden, gin.H{"error": "Invalid Credentials"})
-	}
-}
-
-// Gin method to handle the upload and send messages back to the frontend
-func handleUpload(c *gin.Context) {
-	//c.FormFile is a method that gets the file metadata from the frontend react FormData fetch request.
-	file, err := c.FormFile("file")
-	if err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
-		return
-	}
-	//file.Open creates a reader when it opens the file
-	f, err := file.Open()
-	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "Could not open file"})
-		return
-	}
-	//close the file reader when the function exits
-	defer f.Close()
-	//upload the csv so we can take the rows and map them into member structs. f is already a reader
-	err = uploadCSVList(f)
-	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "CSV parsing failed"})
-		return
-	}
-	//send a success message to the front end.
-	c.IndentedJSON(http.StatusOK, gin.H{"message": "CSV upload successful"})
 }
 
 // let the user upload a new .csv file and use it to populate the database.
@@ -258,13 +214,14 @@ func addNewMember(m Member) error {
 				phone, email, last_one_on_one, issues,
 				due_date_pay, active
 	) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-
+	//add the variables that hold the actual data into the db.Exec function, they will replace the '?'
 	_, err = db.Exec(query,
 		m.Name,
 		m.Street,
 		m.City,
 		m.State,
 		m.Zip,
+		m.County,
 		m.Phone,
 		m.Email,
 		m.Last_one_on_one.Format("01/02/2006"),
@@ -279,13 +236,57 @@ func addNewMember(m Member) error {
 }
 
 // return a list of all of the members (after updating, adding or deleting). Hand off to
-// gin to display on the user interface. May need a parameter here, not sure yet.
-func listMembers() []string {
-	//SELECT * FROM members
-	//call rowToStruct() to send to gin to be put in a json.
-	//do we really need to create a member struct here, since the db has the form the json needs in
-	//the first place?
-	return nil
+// gin to display on the user interface.
+func listMembers() ([]Member, error) {
+	//create an array of Members to give back to gin
+	var members []Member
+	db, err := sql.Open("sqlite3", "./coalition.db")
+	if err != nil {
+		log.Println(err)
+		return members, err
+	}
+	defer db.Close()
+	//query the db to get the rows
+	rows, err := db.Query(`SELECT * FROM members`)
+	if err != nil {
+		log.Println(err)
+		return members, err
+	}
+	defer rows.Close()
+	//loop through each row and add it to a new member's fields.
+	for rows.Next() {
+		var m Member
+		var lastOneOnOne string
+		var issuesCSV string
+		var dueDatePay string
+
+		err := rows.Scan(
+			&m.Id,
+			&m.Name,
+			&m.Street,
+			&m.City,
+			&m.State,
+			&m.Zip,
+			&m.County,
+			&m.Phone,
+			&m.Email,
+			&lastOneOnOne,
+			&issuesCSV,
+			&dueDatePay,
+			&m.Active,
+		)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		//some of the fields need to be formatted
+		m.Last_one_on_one, _ = time.Parse("01/02/2006", lastOneOnOne)
+		m.Issues = strings.Split(issuesCSV, ",")
+		m.Due_date_pay, _ = time.Parse("01/02/2006", dueDatePay)
+		//add the new member to the list of members
+		members = append(members, m)
+	}
+	return members, nil
 }
 
 // return a list of all of the members that need to have one on one conversations.
@@ -339,6 +340,63 @@ func listInactive() error {
 	return nil
 }
 
+//GIN Handlers
+
+// connect gin to the listMembers method by adding a handler
+func handleListMembers(c *gin.Context) {
+	members, err := listMembers()
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "Could not retrieve members"})
+		return
+	}
+	c.IndentedJSON(http.StatusOK, members)
+}
+
+// Gin handler for making member struct from json. gin.H is an alias for a map of strings used to make jsons.
+func handleLogin(c *gin.Context) {
+	//create a new user struct
+	var u User
+	//try to use gin to map the json fields to the member structs using the BindJSON method
+	if err := c.BindJSON(&u); err != nil {
+		//if binding fails, send an error json
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	}
+	//call the go method userLogin to check the database for the un/pw
+	if userLogin(u.Username, u.Password) {
+		//if found and correct, send a success message
+		c.IndentedJSON(http.StatusOK, gin.H{"message": "Login Successful"})
+	} else {
+		//if found and incorrect or not found send a failure message
+		c.IndentedJSON(http.StatusForbidden, gin.H{"error": "Invalid Credentials"})
+	}
+}
+
+// Gin method to handle the upload and send messages back to the frontend
+func handleUpload(c *gin.Context) {
+	//c.FormFile is a method that gets the file metadata from the frontend react FormData fetch request.
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
+		return
+	}
+	//file.Open creates a reader when it opens the file
+	f, err := file.Open()
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "Could not open file"})
+		return
+	}
+	//close the file reader when the function exits
+	defer f.Close()
+	//upload the csv so we can take the rows and map them into member structs. f is already a reader
+	err = uploadCSVList(f)
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "CSV parsing failed"})
+		return
+	}
+	//send a success message to the front end.
+	c.IndentedJSON(http.StatusOK, gin.H{"message": "CSV upload successful"})
+}
+
 // testing main
 func main() {
 	err := initializeDatabase()
@@ -349,6 +407,7 @@ func main() {
 	router := gin.Default()
 	router.POST("/login", handleLogin)
 	router.POST("/upload", handleUpload)
+	router.GET("/members", handleListMembers)
 
 	router.Run(":8080")
 }
