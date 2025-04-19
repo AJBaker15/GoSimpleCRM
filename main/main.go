@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -291,53 +292,220 @@ func listMembers() ([]Member, error) {
 
 // return a list of all of the members that need to have one on one conversations.
 // This means any inactive or member whose last convo was more than six months ago
-// not sure about parameters/returns yet. How does this work with gin, are we building the json here?
-func listMembersNeedOneOnOnes() error {
-	//today := time.Now()
-	//threshold := today minus six months
-	//SELECT * FROM members WHERE last_one_on_one < threshold
-	//convert to member structs? rowToStruct()
+func listMembersNeedOneOnOnes() ([]Member, error) {
+	var members []Member
+	db, err := sql.Open("sqlite3", "./coalition.db")
+	if err != nil {
+		log.Println(err)
+		return members, err
+	}
+	defer db.Close()
+
+	//build the query
+	query := `SELECT * FROM members WHERE active = false OR date(last_one_on_one) < date('now', '-6 months');`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		log.Println(err)
+		return members, err
+	}
+	defer rows.Close()
+
+	//build the member
+	for rows.Next() {
+		var m Member
+		var lastOneOnOne string
+		var issuesCSV string
+		var dueDatePay string
+
+		err := rows.Scan(
+			&m.Id,
+			&m.Name,
+			&m.Street,
+			&m.City,
+			&m.State,
+			&m.Zip,
+			&m.County,
+			&m.Phone,
+			&m.Email,
+			&lastOneOnOne,
+			&issuesCSV,
+			&dueDatePay,
+			&m.Active,
+		)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		m.Last_one_on_one, _ = time.Parse("01/02/2006", lastOneOnOne)
+		m.Issues = strings.Split(issuesCSV, ",")
+		m.Due_date_pay, _ = time.Parse("01/02/2006", dueDatePay)
+
+		members = append(members, m)
+	}
+	return members, nil
+}
+
+// delete a member from the sql member table. Given a member struct to delete.
+func deleteMember(id int) error {
+	db, err := sql.Open("sqlite3", "./coalition.db")
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	defer db.Close()
+
+	query := `DELETE FROM members WHERE id = ?`
+	_, err = db.Exec(query, id)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
 	return nil
 }
 
-// delete a member from the sql member table. Given a member struct to delete. How are we identifying
-// the member to delete? We could use the UI to pass the entire member struct via the id of the struct
-// identified by UI elements like a mouse click. Could also return a bool?
-func deleteMember(m Member) error {
-	//use a unique identifier like the email or the id to locate the memeber struct
-	//delete the member struct from the database
-	//DELETE FROM members WHERE id = m.id
-	//DELETE FROM members WHERE email = m.email
-	return nil
-
-}
-
-// updates a member feild from the UI selections. Should we update just the changes or swap out the whole
-// member struct no matter how much it has changed? For performance I think the former. This could also
-// return a bool
+// updates a member feild from the UI selections. Whole form is given for simplicity and we just replace all fields
 func updateMember(m Member) error {
-	//may just get the whole member struct we need to change and then have to look for the
-	//fields that actually changed in this method.
-	//update the fields that changed in the database.
-	//UPDATE members SET ... WHERE id = m.id
-	return nil
+	db, err := sql.Open("sqlite3", "./coalition.db")
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	defer db.Close()
+
+	query := `
+	UPDATE members
+	SET name = ?, street = ?, city = ?, state = ?, zip = ?, county = ?, 
+		phone = ?, email = ?, last_one_on_one = ?, issues = ?, due_date_pay = ?, active = ?
+	WHERE id = ?;
+	`
+	_, err = db.Exec(query,
+		m.Name,
+		m.Street,
+		m.City,
+		m.State,
+		m.Zip,
+		m.County,
+		m.Phone,
+		m.Email,
+		m.Last_one_on_one.Format("01/02/2006"),
+		strings.Join(m.Issues, ","),
+		m.Due_date_pay.Format("01/02/2006"),
+		m.Active,
+		m.Id,
+	)
+	return err
 }
 
 // this needs to return a list of member structs where each member has the keyword given in the issues
 // column of the database (comma separated string -> issues). User needs to choose from a drop down to avoid
 // complexity for now. This can be expanded later.
-func searchVolunteers(keyword string) error {
-	//user gives a keyword (using a drop down on the UI)
-	//search the database for a list of members that have that keyword in
-	//SELECT * FROM members WHERE issues LIKE '%keyword%'
-	return nil
+func searchVolunteers(keyword string) ([]Member, error) {
+	var members []Member
+	db, err := sql.Open("sqlite3", "./coalition.db")
+	if err != nil {
+		log.Println(err)
+		return members, err
+	}
+	defer db.Close()
+
+	//build the query
+	query := `SELECT * FROM members WHERE issues LIKE ?`
+	searchTerm := "%" + keyword + "%"
+
+	rows, err := db.Query(query, searchTerm)
+	if err != nil {
+		log.Println(err)
+		return members, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var m Member
+		var lastOneOnOne string
+		var issuesCSV string
+		var dueDatePay string
+
+		err := rows.Scan(
+			&m.Id,
+			&m.Name,
+			&m.Street,
+			&m.City,
+			&m.State,
+			&m.Zip,
+			&m.County,
+			&m.Phone,
+			&m.Email,
+			&lastOneOnOne,
+			&issuesCSV,
+			&dueDatePay,
+			&m.Active,
+		)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		m.Last_one_on_one, _ = time.Parse("01/02/2006", lastOneOnOne)
+		m.Issues = strings.Split(issuesCSV, ",")
+		m.Due_date_pay, _ = time.Parse("01/02/2006", dueDatePay)
+
+		members = append(members, m)
+	}
+	return members, nil
 }
 
 // returns a list of members that has an active status set to false.
-func listInactive() error {
-	//search the database for a list of members that have active = false
-	//SELECT * FROM members WHERE active = false
-	return nil
+func listInactive() ([]Member, error) {
+	var members []Member
+	db, err := sql.Open("sqlite3", "./coalition.db")
+	if err != nil {
+		log.Println(err)
+		return members, err
+	}
+	defer db.Close()
+
+	//build the query
+	query := `SELECT * FROM members WHERE active = false);`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		log.Println(err)
+		return members, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var m Member
+		var lastOneOnOne string
+		var issuesCSV string
+		var dueDatePay string
+
+		err := rows.Scan(
+			&m.Id,
+			&m.Name,
+			&m.Street,
+			&m.City,
+			&m.State,
+			&m.Zip,
+			&m.County,
+			&m.Phone,
+			&m.Email,
+			&lastOneOnOne,
+			&issuesCSV,
+			&dueDatePay,
+			&m.Active,
+		)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		m.Last_one_on_one, _ = time.Parse("01/02/2006", lastOneOnOne)
+		m.Issues = strings.Split(issuesCSV, ",")
+		m.Due_date_pay, _ = time.Parse("01/02/2006", dueDatePay)
+
+		members = append(members, m)
+	}
+	return members, nil
 }
 
 //GIN Handlers
@@ -397,6 +565,80 @@ func handleUpload(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, gin.H{"message": "CSV upload successful"})
 }
 
+// handler to filter one on one list
+func handleListNeedOneOnOnes(c *gin.Context) {
+	members, err := listMembersNeedOneOnOnes()
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "Could not get filtered list"})
+		return
+	}
+	c.IndentedJSON(http.StatusOK, members)
+}
+
+// handler to filter inactive list
+func handleListInactive(c *gin.Context) {
+	members, err := listInactive()
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "Could not get inactive list."})
+	}
+	c.IndentedJSON(http.StatusOK, members)
+}
+
+// handler to delete a member
+func handleDeleteMember(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+	err = deleteMember(id)
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "Could not delete member."})
+		return
+	}
+	c.IndentedJSON(http.StatusOK, gin.H{"message": "Member deleted successfully."})
+}
+
+// handler for searching for a keyword in issues list
+func handleSearchVolunteers(c *gin.Context) {
+	keyword := c.Query("issue")
+
+	if keyword == "" {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "Missing keyword."})
+		return
+	}
+
+	members, err := searchVolunteers(keyword)
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "Search Failed."})
+		return
+	}
+	c.IndentedJSON(http.StatusOK, members)
+}
+
+// handler for updating a member
+func handleUpdateMember(c *gin.Context) {
+	var m Member
+	if err := c.BindJSON(&m); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		return
+	}
+
+	idParam := c.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil || id != m.Id {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "Mismatch or invalid ID"})
+		return
+	}
+
+	if err := updateMember(m); err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "Could not update member"})
+		return
+	}
+	c.IndentedJSON(http.StatusOK, gin.H{"message": "Member updated successfully"})
+}
+
 // testing main
 func main() {
 	err := initializeDatabase()
@@ -408,6 +650,11 @@ func main() {
 	router.POST("/login", handleLogin)
 	router.POST("/upload", handleUpload)
 	router.GET("/members", handleListMembers)
+	router.GET("/members/need-one-on-ones", handleListNeedOneOnOnes)
+	router.GET("/members/inactive", handleListInactive)
+	router.GET("/members/search", handleSearchVolunteers)
+	router.DELETE("/member/:id", handleDeleteMember)
+	router.PUT("/member/:id", handleUpdateMember)
 
 	router.Run(":8080")
 }
