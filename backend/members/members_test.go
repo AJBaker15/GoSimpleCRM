@@ -13,7 +13,7 @@ import (
 // We need this test case so we can "reset" the database after each test run. Updates and refactoring with DB
 // need to happen here for scalability.
 func TestMain(m *testing.M) {
-	_ = os.Remove("./coalition.db")
+	_ = os.Remove("../coalition.db")
 	if err := InitializeDatabase(); err != nil {
 		log.Fatalf("Could not initialize database: %v", err)
 	}

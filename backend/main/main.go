@@ -2,10 +2,11 @@ package main
 
 //imports
 import (
-	"GOSIMPLECRM/handlers"
-	"GOSIMPLECRM/members"
+	"GOSIMPLECRM/backend/handlers"
+	"GOSIMPLECRM/backend/members"
 	"log"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -16,8 +17,13 @@ func main() {
 	if err != nil {
 		log.Println(err)
 	}
+	//create a test login
+	//username = admin; password = admin
+	members.DebugListUsers()
 
 	router := gin.Default()
+	router.Use(cors.Default())
+
 	router.POST("/login", handlers.HandleLogin)
 	router.POST("/upload", handlers.HandleUpload)
 	router.GET("/members", handlers.HandleListMembers)

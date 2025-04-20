@@ -2,7 +2,7 @@ package members
 
 //imports
 import (
-	"GOSIMPLECRM/peopleobjs"
+	"GOSIMPLECRM/backend/peopleobjs"
 	"database/sql"
 	"encoding/csv"
 	"fmt"
@@ -20,7 +20,7 @@ import (
 
 // create the sql table to hold the member structs
 func InitializeDatabase() error {
-	db, err := sql.Open("sqlite3", "./coalition.db")
+	db, err := sql.Open("sqlite3", "../coalition.db")
 	if err != nil {
 		log.Println("Could not open database: ", err)
 		return err
@@ -60,6 +60,22 @@ func InitializeDatabase() error {
 	if err != nil {
 		return err
 	}
+
+	// Insert default admin user if not exists
+	var exists bool
+	err = db.QueryRow(`SELECT EXISTS (SELECT 1 FROM users WHERE user_name = ?)`, "admin").Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("error checking for default admin user: %v", err)
+	}
+
+	if !exists {
+		_, err = db.Exec(`INSERT INTO users (user_name, password) VALUES (?, ?)`, "admin", "admin")
+		if err != nil {
+			return fmt.Errorf("error inserting default admin user: %v", err)
+		}
+		log.Println("Default admin user created: admin / admin")
+	}
+
 	return nil
 }
 
@@ -74,7 +90,7 @@ func UserLogin(userName string, password string) bool {
 		log.Println("Username or password cannot be empty.")
 	}
 	//open the database
-	db, err := sql.Open("sqlite3", "./coalition.db")
+	db, err := sql.Open("sqlite3", "../coalition.db")
 	if err != nil {
 		log.Println(err)
 	}
@@ -83,12 +99,14 @@ func UserLogin(userName string, password string) bool {
 
 	var exists bool
 	//use the database package to query the sqlite3 database
-	err = db.QueryRow(`SELECT EXISTS (SELECT 1 FROM users WHERE username = ? AND password = ?)`, userName, password).Scan(&exists)
+	err = db.QueryRow(`SELECT EXISTS (SELECT 1 FROM users WHERE user_name = ? AND password = ?)`, userName, password).Scan(&exists)
 	if err != nil {
 		log.Println(err)
 		return false
 	}
 	//return true if user/pw is correct/found, false if not
+	log.Printf("Login attempt for '%s': exists = %v\n", userName, exists)
+
 	return exists
 }
 
@@ -174,7 +192,7 @@ func rowToStruct(row []string) (peopleobjs.Member, error) {
 // in a member struct before we pass it here, or should we do it all in this method?
 // not sure if I want to use a string[] or a member struct as the argument.
 func addNewMember(m peopleobjs.Member) error {
-	db, err := sql.Open("sqlite3", "./coalition.db")
+	db, err := sql.Open("sqlite3", "../coalition.db")
 	if err != nil {
 		return err
 	}
@@ -210,7 +228,7 @@ func addNewMember(m peopleobjs.Member) error {
 func ListMembers() ([]peopleobjs.Member, error) {
 	//create an array of Members to give back to gin
 	var members []peopleobjs.Member
-	db, err := sql.Open("sqlite3", "./coalition.db")
+	db, err := sql.Open("sqlite3", "../coalition.db")
 	if err != nil {
 		log.Println(err)
 		return members, err
@@ -263,7 +281,7 @@ func ListMembers() ([]peopleobjs.Member, error) {
 // This means any inactive or member whose last convo was more than six months ago
 func ListMembersNeedOneOnOnes() ([]peopleobjs.Member, error) {
 	var members []peopleobjs.Member
-	db, err := sql.Open("sqlite3", "./coalition.db")
+	db, err := sql.Open("sqlite3", "../coalition.db")
 	if err != nil {
 		log.Println(err)
 		return members, err
@@ -317,7 +335,7 @@ func ListMembersNeedOneOnOnes() ([]peopleobjs.Member, error) {
 
 // delete a member from the sql member table. Given a member struct to delete.
 func DeleteMember(id int) error {
-	db, err := sql.Open("sqlite3", "./coalition.db")
+	db, err := sql.Open("sqlite3", "../coalition.db")
 	if err != nil {
 		log.Println(err)
 		return err
@@ -335,7 +353,7 @@ func DeleteMember(id int) error {
 
 // updates a member feild from the UI selections. Whole form is given for simplicity and we just replace all fields
 func UpdateMember(m peopleobjs.Member) error {
-	db, err := sql.Open("sqlite3", "./coalition.db")
+	db, err := sql.Open("sqlite3", "../coalition.db")
 	if err != nil {
 		log.Println(err)
 		return err
@@ -371,7 +389,7 @@ func UpdateMember(m peopleobjs.Member) error {
 // complexity for now. This can be expanded later.
 func SearchVolunteers(keyword string) ([]peopleobjs.Member, error) {
 	var members []peopleobjs.Member
-	db, err := sql.Open("sqlite3", "./coalition.db")
+	db, err := sql.Open("sqlite3", "../coalition.db")
 	if err != nil {
 		log.Println(err)
 		return members, err
@@ -426,7 +444,7 @@ func SearchVolunteers(keyword string) ([]peopleobjs.Member, error) {
 // returns a list of members that has an active status set to false.
 func ListInactive() ([]peopleobjs.Member, error) {
 	var members []peopleobjs.Member
-	db, err := sql.Open("sqlite3", "./coalition.db")
+	db, err := sql.Open("sqlite3", "../coalition.db")
 	if err != nil {
 		log.Println(err)
 		return members, err
@@ -475,4 +493,23 @@ func ListInactive() ([]peopleobjs.Member, error) {
 		members = append(members, m)
 	}
 	return members, nil
+}
+
+func DebugListUsers() {
+	db, _ := sql.Open("sqlite3", "./coalition.db")
+	defer db.Close()
+
+	rows, err := db.Query("SELECT id, user_name, password FROM users")
+	if err != nil {
+		log.Println("Query failed:", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int
+		var username, password string
+		rows.Scan(&id, &username, &password)
+		log.Printf("User: id=%d username=%s password=%s", id, username, password)
+	}
 }

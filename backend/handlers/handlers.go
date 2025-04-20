@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"GOSIMPLECRM/members"
-	"GOSIMPLECRM/peopleobjs"
+	"GOSIMPLECRM/backend/members"
+	"GOSIMPLECRM/backend/peopleobjs"
 	"net/http"
 	"strconv"
 

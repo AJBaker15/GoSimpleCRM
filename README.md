@@ -23,8 +23,8 @@ When testing run all tests together-- dependencies in the DB CSV upload. Easy fi
 Helpful to look at the members_test.csv file provided -- some test functions are working with this known data. If new testdata is added, test functions need to be updated
 Automated testing files are located in packages: 
 members/
-handlers/
 Test with: go test ./members -v 
+Integration Testing between Gin/React still needed. 
 
 # Scaling Warnings: 
 In test cases before scaling, refactor DB usage. Use :memory: usage instead of persistent shared .db file.
@@ -32,5 +32,15 @@ Add a parser to the .csv so any format can be uploaded -> will map headers to st
 Ideally we would use different storage options than a local db file for larger datasets. (BigQuery, Cloud)
 
 # Running the Program
+**Open up the backend/ as root
+under backend/ run go run main/main.go to start the server listening on port: 8080
+under frontend/ run npm run dev to start the frontend react UI. Follow the url to reach the login page
+Default testing login: 
+Username = "admin"
+Password = "admin"
+
+UI Functionality is not yet complete. 
+Use the corresponding unit cases for testing backend go functionality. 
+
 
 
