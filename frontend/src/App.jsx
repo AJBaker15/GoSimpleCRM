@@ -3,13 +3,25 @@ import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
 import LoginForm from './components/LoginForm'
+import Dashboard from './components/Dashboard'
 
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
   return (
     <>
       <div>
         <h1>Coalition CRM</h1>
-        <LoginForm />
+        {isLoggedIn ? (
+          <>
+          <Dashboard />
+          </>
+        ) : (
+          <>
+          <LoginForm onLogin={() => setIsLoggedIn(true)} />
+          </>
+        )}
+        
         </div>
     </>
   )

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -75,6 +76,36 @@ func InitializeDatabase() error {
 		}
 		log.Println("Default admin user created: admin / admin")
 	}
+
+	//seed the database with sample data so that we have something to show on the UI during demos
+	row := db.QueryRow("SELECT COUNT(*) FROM members")
+	var count int
+	err = row.Scan(&count)
+	if err != nil {
+		log.Println("Error checking Member count")
+		return err
+	} else {
+		fmt.Printf("Current Member Count: %d", count)
+	}
+
+	//If the database is empty, load the sample .csv that is provided.
+
+	if count == 0 {
+		log.Println("Database is empty, seeding with sample data.")
+		file, err := os.Open("members/testdata/members_test.csv")
+		if err != nil {
+			log.Println("Failed to open members_test.csv", err)
+			return err
+		}
+		defer file.Close()
+
+		err = UploadCSVList(file)
+		if err != nil {
+			log.Println("Failed to seed sample data.", err)
+			return err
+		}
+	}
+	log.Println("Sample data added to members table.")
 
 	return nil
 }
@@ -495,6 +526,8 @@ func ListInactive() ([]peopleobjs.Member, error) {
 	return members, nil
 }
 
+// this helps with debugging the log in functionality. It checks and lists the entries in the users table
+// so that we can add a test login
 func DebugListUsers() {
 	db, _ := sql.Open("sqlite3", "./coalition.db")
 	defer db.Close()
