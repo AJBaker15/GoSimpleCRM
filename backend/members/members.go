@@ -171,7 +171,7 @@ func UploadCSVList(filereader io.Reader) error {
 			continue
 		}
 		//add the new struct to the database
-		err = addNewMember(member)
+		err = AddNewMember(member)
 		if err != nil {
 			log.Println("Could not add new member", err)
 			failures++
@@ -222,7 +222,7 @@ func rowToStruct(row []string) (peopleobjs.Member, error) {
 // add a new member to the database. Here do we want to parse the json with the member request and put it
 // in a member struct before we pass it here, or should we do it all in this method?
 // not sure if I want to use a string[] or a member struct as the argument.
-func addNewMember(m peopleobjs.Member) error {
+func AddNewMember(m peopleobjs.Member) error {
 	db, err := sql.Open("sqlite3", "../coalition.db")
 	if err != nil {
 		return err

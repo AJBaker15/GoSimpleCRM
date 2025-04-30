@@ -32,6 +32,7 @@ func main() {
 	router.GET("/members/search", handlers.HandleSearchVolunteers)
 	router.DELETE("/member/:id", handlers.HandleDeleteMember)
 	router.PUT("/member/:id", handlers.HandleUpdateMember)
+	router.POST("/members/add", handlers.HandleAddMember)
 
 	router.Run(":8080")
 }

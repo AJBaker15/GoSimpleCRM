@@ -66,6 +66,23 @@ func HandleUpload(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, gin.H{"message": "CSV upload successful"})
 }
 
+// handler to add a new member
+func HandleAddMember(c *gin.Context) {
+	var m peopleobjs.Member
+	if err := c.BindJSON(&m); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "Invalid Member data."})
+		return
+	}
+
+	err := members.AddNewMember(m)
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "Could not add member."})
+		return
+	}
+
+	c.IndentedJSON(http.StatusCreated, gin.H{"message": "Member added successfully."})
+}
+
 // handler to filter one on one list
 func HandleListNeedOneOnOnes(c *gin.Context) {
 	members, err := members.ListMembersNeedOneOnOnes()

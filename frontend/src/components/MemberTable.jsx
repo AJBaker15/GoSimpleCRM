@@ -33,7 +33,7 @@ function MemberTable() {
     return (
         <div>
             <h2>Member List</h2>
-            <table border="1" cellPadding="8" style={{borderCollape: 'collapse'}}>
+            <table border="1" cellPadding="8" style={{borderCollapse: 'collapse'}}>
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -52,19 +52,19 @@ function MemberTable() {
                 </thead>
                 <tbody>
                     {members.map(member => (
-                        <tr key={member.Id}>
-                        <td>{member.Name}</td>
-                        <td>{member.Street}</td>
-                        <td>{member.City}</td>
-                        <td>{member.State}</td>
-                        <td>{member.Zip}</td>
-                        <td>{member.County}</td>
-                        <td>{member.Phone}</td>
-                        <td>{member.Email}</td>
-                        <td>{new Date(member.Last_one_on_one).toLocaleDateString()}</td>
-                        <td>{Array.isArray(member.Issues) ? member.Issues.join(', ') : member.Issues || ''}</td>
-                        <td>{new Date(member.Due_date_pay).toLocaleDateString}</td>
-                        <td>{member.Active ? 'Yes' : 'No'}</td>
+                        <tr key={member.id}>
+                        <td>{member.name}</td>
+                        <td>{member.street}</td>
+                        <td>{member.city}</td>
+                        <td>{member.state}</td>
+                        <td>{member.zip}</td>
+                        <td>{member.county}</td>
+                        <td>{member.phone}</td>
+                        <td>{member.email}</td>
+                        <td>{new Date(member.last_one_on_one).toLocaleDateString()}</td>
+                        <td>{Array.isArray(member.issues) ? member.issues.join(', ') : member.issues || ''}</td>
+                        <td>{new Date(member.due_date_pay).toLocaleDateString()}</td>
+                        <td>{member.active ? 'Yes' : 'No'}</td>
                         </tr>
                     ))}
                 </tbody>
