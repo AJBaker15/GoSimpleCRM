@@ -3,6 +3,7 @@ import DeleteMemberForm from "./DeleteMemberForm";
 import MemberTable from "./MemberTable";
 import UploadForm from "./UploadForm";
 import UpdateMemberForm from "./UpdateMemberForm";
+import SearchVolunteerForm from "./SearchVolunteerForm";
 import {useState, useEffect} from 'react'
 
 //displays the members table as the main interface after logging in. 
@@ -14,11 +15,14 @@ function Dashboard() {
     const [showAddForm, setShowAddForm] = useState(false);
     const [showDeleteForm, setShowDeleteForm] = useState(false);
     const [showUpdateForm, setShowUpdateForm] = useState(false);
+    const [showSearchForm, setShowSearchForm] = useState(false);
+    const [showInactive, setShowInactive] = useState(false);
 
     useEffect(() => {
         async function fetchMembers() {
             try{
-                const res = await fetch('/members');
+                const endpoint = showInactive ? '/members/inactive' : '/members';
+                const res = await fetch(endpoint);
                 const data = await res.json();
                 setMembers(data);
             } catch (err) {
@@ -26,7 +30,7 @@ function Dashboard() {
             }
         }
         fetchMembers();
-    }, [reloadFlag]);
+    }, [reloadFlag, showInactive]);
 
     return (
         <div> 
@@ -35,7 +39,9 @@ function Dashboard() {
                 <button onClick={() => setShowUploadForm(prev => !prev)}> Upload CSV File</button>
                 <button onClick={() => setShowUpdateForm(prev => !prev)}> Update Member</button>
                 <button onClick={() => setShowDeleteForm(prev => !prev)}> Delete Member</button>
-                <button onClick={() => alert("This is not implemented yet.")}>Search Volunteers</button>
+                <button onClick={() => setShowSearchForm(prev => !prev)}>Search Volunteers</button>
+                <button onClick={() => {setShowInactive(prev => !prev); setReloadFlag(prev => !prev);}}> {showInactive ? 'Show All Members' : 'List Inactive Members'}</button>
+
             </div>
 
             {showAddForm && (
@@ -79,9 +85,16 @@ function Dashboard() {
                 />
             )}
 
-            <MemberTable key={reloadFlag} />
+            {showSearchForm && (
+                <SearchVolunteerForm
+                members={members}
+                onCancel={() => setShowSearchForm(false)}
+                />
+            )}
+
+            <MemberTable key={reloadFlag} members={members} />
         </div>
     );
 }
 
-export default Dashboard
+export default Dashboard;

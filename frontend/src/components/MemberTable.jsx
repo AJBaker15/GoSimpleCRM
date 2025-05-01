@@ -2,33 +2,8 @@ import {useEffect, useState} from 'react'
 
 //creates the member table from a seeded .csv form in the backend. Added some extra code here to debug the 
 //client server communication types. Making sure that Gin was sending a json Array. 
-function MemberTable() {
-    const [members, setMembers] = useState([])
-    const [loading, setLoading] = useState(true)
-
-    useEffect(() => {
-        async function fetchMembers() {
-            try {
-                const res = await fetch('/members')
-                const data = await res.json()
-                console.log("Fetched Data: ", data)
-                //check to make sure Gin is sending an Array, create a fail safe if not
-                if (Array.isArray(data)) {
-                    setMembers(data)
-                } else {
-                    console.error("Expected an array but got:", data)
-                    setMembers([]) //fail safe
-                }
-            } catch (err) {
-                console.err('Error fetching members:', err)
-            } finally {
-                setLoading(false)
-            }
-        }
-        fetchMembers()
-    }, [])
-    if (loading) return <p>Loading members....</p>
-    if (!Array.isArray(members) || members.length === 0) return <p>No members found.</p>
+function MemberTable({ members }) {
+    if (!Array.isArray(members) || members.length === 0) return <p>No members found.</p>;
 
     return (
         <div>
